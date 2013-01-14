@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+<head>
+<title>Ghost Runner</title>
+<style>
+	#main-canvas {
+		border: 1px #000000 dashed; 
+	}
+
+	.center {
+		position: absolute;
+		left: 0;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		margin: auto;
+	}
+</style>
+
+<script src="js/Stats.js"></script>
+<script src="js/AssetsManager.js"></script>
+<script src="js/EventEmitter.js"></script>
+<script src="js/Vector2.js"></script>
+<script src="js/GameObject.js"></script>
+<script src="js/requestAnimationFrame.js"></script>
+<script src="js/Components/Sprite.js"></script>
+</head>
+<body><script>
+
+// useless shit, go ligne 85
+var canvas, ctx, stats;
+
+var keyboard = {
+		left: {down: false, used: false}
+	, up: {down: false, used: false}
+	, right: {down: false, used: false}
+	, bottom: {down: false, used: false}
+	, space: {down: false, used: false}
+};
+
+var WIDTH = 800, HEIGHT = 600;
+
+window.onkeydown = function (e) {
+	switch (e.keyCode) {
+		case 37: keyboard.left.down = true; break;
+		case 38: keyboard.up.down = true; break;
+		case 39: keyboard.right.down = true; break;
+		case 40: keyboard.bottom.down = true; break;
+		case 32: keyboard.space.down = true; break;
+	}
+};
+
+window.onkeyup = function (e) {
+	switch (e.keyCode) {
+		case 37: keyboard.left.down = keyboard.left.used = false; break;
+		case 38: keyboard.up.down = keyboard.up.used = false; break;
+		case 39: keyboard.right.down = keyboard.right.used = false; break;
+		case 40: keyboard.bottom.down = keyboard.bottom.used = false; break;
+		case 32: keyboard.space.down = keyboard.space.used = false; break;
+	}
+};
+
+AssetsManager.root("images/");
+
+AssetsManager.load([
+		"sprite.lutin.png"
+	, "sprite.ghost.png"
+] , function () {
+	canvas = document.createElement("canvas");
+	ctx = canvas.getContext("2d");
+	
+	canvas.width = WIDTH;
+	canvas.height = HEIGHT;
+	
+	canvas.id = "main-canvas";
+	canvas.classList.add("center");
+
+	document.body.appendChild(canvas);
+
+	stats = new Stats;
+	stats.setMode(0);
+
+	document.body.appendChild(stats.domElement);
+	
+	// définition du lutin, accessible via GameObject("Lutin")
+	var lutin = GameObject.create({
+			// vitesse de déplacement du lutin sur les axes x et y
+				velocity: new Vector2()
+			// multiplicateur qui affecte la vélocité du lutin
+			, walkSpeed: 5
+			// vitesse initiale d'un saut
+			, jumpSpeed: 25
+			// indique si le lutin est en train de sauter
+			, jumping: false
+			// array qui contient les inputs enregistrés par le lutin à chaque frame
+			, _inputs: []
+			// timestamp qui indique quand le lutin à commencer à enregistrer les inputs [A VIRER DANS UNE GAMESCENE]
+			, _startTime: 0
+		}).setTag("Lutin")
+		.addComponent("Sprite", {source: AssetsManager.get("sprite.lutin.png")})
+		.on("update", function (dt) {
+			var jump = false;
+
+			// recalcul de la vitesse en x en fonction des touches du clavier actives
+			if (keyboard.left.down) this.velocity.x = -0.5 * this.walkSpeed;
+			else if (keyboard.right.down) this.velocity.x = 1.5 * this.walkSpeed;
+			else this.velocity.x = 1 * this.walkSpeed;
+
+			// si la touche de saut est active, qu'elle n'a pas encore été utilisée et que le lutin n'est pas en train de sauter ...
+			if (keyboard.up.down && !keyboard.up.used && !this.jumping) {
+				// recalcul de sa vitesse en y
+				this.velocity.y -= this.jumpSpeed;
+				// actualisation de l'état jumping
+				this.jumping = jump = true;
+			}
+
+			// recalcul de la position du lutin en fonction de sa vélocité et application de la gravité (1.5) sur sa vitesse en y
+			this.localPosition.x += this.velocity.x * dt;
+			this.localPosition.y += (this.velocity.y += 1.5) * dt;
+
+			// si la position du lutin en y est inférieure à celle du sol ...
+			if (this.localPosition.y + this.sprite.height / 2 >= HEIGHT) {
+				// recalcul de sa position
+				this.localPosition.y = HEIGHT - this.sprite.height / 2;
+				// actualisation de sa vitesse en y et de l'état jumping	
+				this.jumping = !!(this.velocity.y = 0);
+			}
+
+			// enregistrement de l'état du keyboard a cette frame dans l'array inputs
+			this._inputs.push(JSON.stringify(keyboard).replace(/\}$/, ',"t":' + (Date.now() - (this._startTime || (this._startTime = Date.now()))) + '}'))
+			
+			// si le lutin a sauté à cette frame on marque la touche de saut du keyboard comme ayant été utilisée
+			if (jump) keyboard.up.used = true;
+		});
+
+	// définition du ghost, accessible via GameObject("Ghost")	
+	var ghost = GameObject.create({
+			// vitesse de déplacement du lutin sur les axes x et y
+				velocity: new Vector2()
+			// multiplicateur qui affecte la vélocité du lutin
+			, walkSpeed: 5
+			// vitesse initiale d'un saut
+			, jumpSpeed: 25
+			// indique si le lutin est en train de sauter
+			, jumping: false
+			// array qui contient les inputs à lire par le ghost à chaque frame, normalement récupéré sur le server
+			, _inputs: lutin._inputs
+			// timestamp qui indique quand le ghots à commencer à lire les inputs [A VIRER DANS UNE GAMESCENE]
+			, _startTime: 0
+	}).setTag("Ghost")
+		.addComponent("Sprite", {source: AssetsManager.get("sprite.ghost.png")})
+		.on("update", function (dt) {
+			// calcul du temps écoulé depuis que le ghost a commencé à lire les inputs
+			var now = Date.now() - (this._startTime || (this._startTime = Date.now()));
+
+			// parsing des inputs
+			for (var i = 0, l = this._inputs.length, input; i < l && (input = JSON.parse(this._inputs[i])); i += 1) { 
+				if (input.t > now) break;
+
+				// même contrôles que le lutin, mais on se réfère à input, pas à keyboard
+				if (input.left.down) this.velocity.x = -0.5 * this.walkSpeed;
+				else if (input.right.down) this.velocity.x = 1.5 * this.walkSpeed;
+				else this.velocity.x = 1 * this.walkSpeed;
+
+				if (input.up.down && !input.up.used && !this.jumping) {
+					this.velocity.y -= this.jumpSpeed;
+					this.jumping = true;
+				}
+
+				this.localPosition.x += this.velocity.x * dt;
+				this.localPosition.y += (this.velocity.y += 1.5) * dt;
+
+				if (this.localPosition.y + this.sprite.height / 2 >= HEIGHT) {
+					this.localPosition.y = HEIGHT - this.sprite.height / 2;
+					this.jumping = !!(this.velocity.y = 0);
+				}
+			}
+
+			// on supprime tous les inputs lus
+			this._inputs.splice(0, i);
+		});
+	
+	// useless shit again
+	requestAnimationFrame(loop);
+});
+
+function render(ctx) {
+	ctx.clearRect(0, 0, WIDTH, HEIGHT);
+	GameObject.draw(ctx);
+}
+
+function loop() {
+	requestAnimationFrame(loop);
+	
+	GameObject.update();
+	render(ctx);
+	
+	stats.update();
+}
+
+</script></body>
+</html>
