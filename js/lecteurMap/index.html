@@ -1,0 +1,39 @@
+<html>
+	<head>
+		<script src="lecteurMap.js"></script>
+	</head>
+	
+	<body bgcolor="#ccc">
+		<div style="width : 800; height : 600; margin : auto; margin-top : 1%;">
+		<canvas id="canvas" width="800" height="600" style="position : absolute;z-index: 1;"></canvas>
+	</div>
+	<script> 
+		window.requestAnimFrame = 	( 
+			  function(){
+			return  window.requestAnimationFrame || 
+			window.webkitRequestAnimationFrame || 
+			window.mozRequestAnimationFrame    || 
+			window.oRequestAnimationFrame      || 
+			window.msRequestAnimationFrame     || 
+			function(callback, element)
+			{
+			  window.setTimeout(callback, 1000 / 60);
+			};
+			  }
+		)();
+		
+		var canvas = document.getElementById('canvas');
+		var ctx = canvas.getContext('2d');
+		
+		var map = new Map();
+		
+		function start(){
+			ctx.fillStyle = '#000';
+			ctx.fillRect(0, 0, 800, 600);
+		}
+		
+		start();
+		
+	</script>
+	</body>
+</html>

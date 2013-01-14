@@ -6,7 +6,7 @@
 	#main-canvas {
 		border: 1px #000000 dashed; 
 	}
-
+	
 	.center {
 		position: absolute;
 		left: 0;
@@ -24,11 +24,16 @@
 <script src="js/GameObject.js"></script>
 <script src="js/requestAnimationFrame.js"></script>
 <script src="js/Components/Sprite.js"></script>
+<script src="js/Components/AABBCollider.js"></script>
+<script src="js/parallaxe.js"></script>
+<script src="js/lecteurMap/lecteurMap.js"></script>
 </head>
 <body><script>
 
 // useless shit, go ligne 85
 var canvas, ctx, stats;
+
+var map = new Map();
 
 var keyboard = {
 		left: {down: false, used: false}
@@ -87,7 +92,7 @@ AssetsManager.load([
 			// vitesse de déplacement du lutin sur les axes x et y
 				velocity: new Vector2()
 			// multiplicateur qui affecte la vélocité du lutin
-			, walkSpeed: 5
+			, walkSpeed: 2.5
 			// vitesse initiale d'un saut
 			, jumpSpeed: 25
 			// indique si le lutin est en train de sauter
@@ -115,7 +120,7 @@ AssetsManager.load([
 			}
 
 			// recalcul de la position du lutin en fonction de sa vélocité et application de la gravité (1.5) sur sa vitesse en y
-			this.localPosition.x += this.velocity.x * dt;
+			//this.localPosition.x += this.velocity.x * dt;
 			this.localPosition.y += (this.velocity.y += 1.5) * dt;
 
 			// si la position du lutin en y est inférieure à celle du sol ...
@@ -138,7 +143,7 @@ AssetsManager.load([
 			// vitesse de déplacement du lutin sur les axes x et y
 				velocity: new Vector2()
 			// multiplicateur qui affecte la vélocité du lutin
-			, walkSpeed: 5
+			, walkSpeed: 2.5
 			// vitesse initiale d'un saut
 			, jumpSpeed: 25
 			// indique si le lutin est en train de sauter
@@ -167,7 +172,7 @@ AssetsManager.load([
 					this.jumping = true;
 				}
 
-				this.localPosition.x += this.velocity.x * dt;
+				//this.localPosition.x += this.velocity.x * dt;
 				this.localPosition.y += (this.velocity.y += 1.5) * dt;
 
 				if (this.localPosition.y + this.sprite.height / 2 >= HEIGHT) {
@@ -187,6 +192,7 @@ AssetsManager.load([
 function render(ctx) {
 	ctx.clearRect(0, 0, WIDTH, HEIGHT);
 	GameObject.draw(ctx);
+	map.run(GameObject("Lutin").localPosition.x);
 }
 
 function loop() {
